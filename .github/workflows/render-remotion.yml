@@ -27,6 +27,31 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Auto-Fix Project Structure & Create tsconfig.json
+        run: |
+          if [ ! -f "tsconfig.json" ]; then
+            cat << 'EOF' > tsconfig.json
+          {
+            "compilerOptions": {
+              "target": "ES2018",
+              "module": "commonjs",
+              "jsx": "react-jsx",
+              "strict": true,
+              "noEmit": true,
+              "lib": ["es2015", "dom"],
+              "esModuleInterop": true,
+              "skipLibCheck": true,
+              "forceConsistentCasingInFileNames": true,
+              "noUnusedLocals": false
+            }
+          }
+          EOF
+          fi
+          mkdir -p src
+          if [ -f "MoldVideoOverlay.tsx" ] && [ ! -f "src/MoldVideoOverlay.tsx" ]; then
+            cp MoldVideoOverlay.tsx src/MoldVideoOverlay.tsx
+          fi
+
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
