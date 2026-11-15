@@ -12,7 +12,7 @@ import {
 } from 'remotion';
 
 // ============================================================================
-// COLOR PALETTE & DESIGN TOKENS (Bio-HUD / Medical Sci-Fi Style)
+// COLOR PALETTE & DESIGN TOKENS (Bio-HUD / Medical Sci-Fi Style - Plan v3)
 // ============================================================================
 const COLORS = {
   neonGreen: '#39FF14',
@@ -20,8 +20,8 @@ const COLORS = {
   crimsonAlert: '#FF2A55',
   cyanHud: '#00F0FF',
   pureWhite: '#FFFFFF',
-  darkBg: 'rgba(8, 12, 20, 0.82)',
-  glassBorder: 'rgba(0, 240, 255, 0.35)',
+  darkBg: 'rgba(8, 12, 20, 0.86)',
+  glassBorder: 'rgba(0, 240, 255, 0.4)',
 };
 
 const FONTS = {
@@ -30,7 +30,7 @@ const FONTS = {
 };
 
 // ============================================================================
-// REUSABLE MOTION GRAPHIC PRIMITIVES
+// REUSABLE MOTION GRAPHIC PRIMITIVES (With Smooth Intro & Exit Fade)
 // ============================================================================
 
 interface KeyframePoint {
@@ -56,9 +56,9 @@ const useTrackedPosition = (keyframes: KeyframePoint[], currentFrame: number) =>
   };
 };
 
-// 1. Point-Tracked Callout with 45-Degree Leader Line & Pulsing Target Reticle
 const TrackedCallout: React.FC<{
   keyframes: KeyframePoint[];
+  durationInFrames: number;
   label: string;
   sublabel?: string;
   color?: string;
@@ -67,6 +67,7 @@ const TrackedCallout: React.FC<{
   reticleSize?: number;
 }> = ({
   keyframes,
+  durationInFrames,
   label,
   sublabel,
   color = COLORS.cyanHud,
@@ -77,9 +78,14 @@ const TrackedCallout: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const intro = spring({ frame, fps, config: { damping: 14, stiffness: 160 } });
-  const outroOpacity = interpolate(frame, [0, 8], [0, 1], { extrapolateRight: 'clamp' });
-  const pulse = 1 + Math.sin(frame * 0.25) * 0.12;
+  const intro = spring({ frame, fps, config: { damping: 14, stiffness: 170 } });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 6, Math.max(7, durationInFrames - 8), durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+  const pulse = 1 + Math.sin(frame * 0.28) * 0.1;
 
   const { x, y, scale } = useTrackedPosition(keyframes, frame);
 
@@ -87,7 +93,7 @@ const TrackedCallout: React.FC<{
   const elbowY = offsetY;
 
   return (
-    <AbsoluteFill style={{ pointerEvents: 'none', opacity: outroOpacity }}>
+    <AbsoluteFill style={{ pointerEvents: 'none', opacity: exitOpacity }}>
       <div
         style={{
           position: 'absolute',
@@ -96,13 +102,13 @@ const TrackedCallout: React.FC<{
           transform: `translate(-50%, -50%) scale(${scale})`,
         }}
       >
-        {/* Target Reticle */}
+        {/* Pulsing Target Reticle */}
         <div
           style={{
             width: reticleSize,
             height: reticleSize,
             borderRadius: '50%',
-            border: `2px solid ${color}`,
+            border: `2.5px solid ${color}`,
             boxShadow: `0 0 14px ${color}`,
             transform: `translate(-50%, -50%) scale(${intro * pulse})`,
             position: 'absolute',
@@ -124,26 +130,26 @@ const TrackedCallout: React.FC<{
           />
         </div>
 
-        {/* SVG 45-Degree Leader Line */}
+        {/* 45-Degree SVG Leader Line */}
         <svg
-          width="400"
-          height="300"
-          viewBox="-200 -150 400 300"
-          style={{ position: 'absolute', left: -200, top: -150, overflow: 'visible' }}
+          width="440"
+          height="340"
+          viewBox="-220 -170 440 340"
+          style={{ position: 'absolute', left: -220, top: -170, overflow: 'visible' }}
         >
           <polyline
             points={`0,0 ${elbowX * intro},${elbowY * intro} ${offsetX * intro},${offsetY * intro}`}
             fill="none"
             stroke={color}
             strokeWidth="2.5"
-            strokeDasharray="300"
-            strokeDashoffset={interpolate(intro, [0, 1], [300, 0])}
+            strokeDasharray="320"
+            strokeDashoffset={interpolate(intro, [0, 1], [320, 0])}
             style={{ filter: `drop-shadow(0 0 6px ${color})` }}
           />
           <circle cx={elbowX * intro} cy={elbowY * intro} r="3.5" fill={color} />
         </svg>
 
-        {/* Callout Text Box */}
+        {/* Frosted HUD Callout Badge */}
         <div
           style={{
             position: 'absolute',
@@ -156,10 +162,10 @@ const TrackedCallout: React.FC<{
             borderRight: `1px solid ${COLORS.glassBorder}`,
             borderBottom: `1px solid ${COLORS.glassBorder}`,
             padding: '8px 14px',
-            borderRadius: '4px',
+            borderRadius: '5px',
             backdropFilter: 'blur(8px)',
             whiteSpace: 'nowrap',
-            boxShadow: `0 8px 24px rgba(0,0,0,0.55), 0 0 12px ${color}33`,
+            boxShadow: `0 8px 24px rgba(0,0,0,0.65), 0 0 12px ${color}33`,
           }}
         >
           <div
@@ -194,70 +200,8 @@ const TrackedCallout: React.FC<{
   );
 };
 
-// 2. Chapter Banner (Top-Left or Bottom-Left to avoid baked-in timers)
-const ChapterBanner: React.FC<{
-  timeTag: string;
-  title: string;
-  color?: string;
-  position?: 'top-left' | 'bottom-left';
-}> = ({ timeTag, title, color = COLORS.cyanHud, position = 'top-left' }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  const slide = spring({ frame, fps, config: { damping: 15, stiffness: 140 } });
-  const xOffset = interpolate(slide, [0, 1], [-420, 0]);
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 56,
-        top: position === 'top-left' ? 52 : undefined,
-        bottom: position === 'bottom-left' ? 64 : undefined,
-        transform: `translateX(${xOffset}px)`,
-        display: 'flex',
-        alignItems: 'center',
-        background: COLORS.darkBg,
-        borderLeft: `6px solid ${color}`,
-        padding: '12px 24px',
-        borderRadius: '0 8px 8px 0',
-        boxShadow: `0 10px 30px rgba(0,0,0,0.6), 0 0 16px ${color}40`,
-        border: `1px solid ${color}55`,
-        borderLeftWidth: 6,
-      }}
-    >
-      <div>
-        <div
-          style={{
-            fontFamily: FONTS.mono,
-            fontSize: 15,
-            fontWeight: 700,
-            color,
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-          }}
-        >
-          {timeTag}
-        </div>
-        <div
-          style={{
-            fontFamily: FONTS.header,
-            fontSize: 30,
-            fontWeight: 900,
-            color: COLORS.pureWhite,
-            letterSpacing: '0.04em',
-            marginTop: 2,
-          }}
-        >
-          {title}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // ============================================================================
-// MAIN VIDEO COMPOSITION (3:12 / 192 Seconds @ 30 FPS = 5760 Frames)
+// MASTER EDITOR'S CUT COMPOSITION (Plan v3 - 18 Shot-Locked Sequences)
 // ============================================================================
 
 export interface MoldVideoProps {
@@ -269,385 +213,372 @@ export const MoldVideoOverlay: React.FC<MoldVideoProps> = ({
   videoFileName = 'lv_0_20261114233803.mp4',
   transparentOverlayOnly = false,
 }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
   return (
     <AbsoluteFill style={{ backgroundColor: transparentOverlayOnly ? 'transparent' : '#000' }}>
-      {/* Base Video Layer (can be toggled off for Alpha-channel overlay export) */}
       {!transparentOverlayOnly && (
         <OffthreadVideo src={staticFile(videoFileName)} style={{ width: '100%', height: '100%' }} />
       )}
 
       {/* =====================================================================
-          00:00 - 00:08 (Frames 0 - 240): Surface Spores Reticle on Moldy Bread
+          SHOT 1: 00:02.2 - 00:07.2 (Frames 66 - 216)
+          Sandwich resting flat on the plate (avoids 00:00-00:01.8 hand drop)
       ===================================================================== */}
-      <Sequence from={15} durationInFrames={225}>
+      <Sequence from={66} durationInFrames={150}>
         <TrackedCallout
+          durationInFrames={150}
           keyframes={[
-            { frame: 0, x: 48, y: 68, scale: 1 },
-            { frame: 110, x: 49, y: 66, scale: 1.05 },
-            { frame: 225, x: 47, y: 69, scale: 1 },
+            { frame: 0, x: 49, y: 88, scale: 1 },
+            { frame: 150, x: 49, y: 88, scale: 1 },
           ]}
           label="SURFACE SPORES"
           sublabel="VISIBLE TIP OF COLONY"
           color={COLORS.neonGreen}
-          offsetX={130}
-          offsetY={-85}
+          offsetX={115}
+          offsetY={-70}
         />
       </Sequence>
 
       {/* =====================================================================
-          00:09 - 00:14 (Frames 270 - 420): Knife Cut Line & "BIG MISTAKE" Stamp
+          SHOT 2: 00:10.2 - 00:13.4 (Frames 306 - 402)
+          Knife slicing moldy right corner -> Target pointer + Upper-Right Stamp
       ===================================================================== */}
-      <Sequence from={270} durationInFrames={150}>
-        <KnifeCutStamp />
+      <Sequence from={306} durationInFrames={96}>
+        <KnifeCutStampV2 durationInFrames={96} />
       </Sequence>
 
       {/* =====================================================================
-          00:15 - 00:26 (Frames 450 - 780): Lower-Left Chapter HUD (Avoids 59:58 clock)
+          SHOT 3: 00:33.8 - 00:38.2 (Frames 1014 - 1146)
+          Boy inspecting bread crust with magnifying glass (after MINUTE 5 card)
       ===================================================================== */}
-      <Sequence from={450} durationInFrames={330}>
-        <ChapterBanner
-          timeTag="T-MINUS 60:00 // INGESTION DETECTED"
-          title="60-MINUTE BIOLOGICAL WAR"
-          color={COLORS.warningAmber}
-          position="bottom-left"
-        />
-      </Sequence>
-
-      {/* =====================================================================
-          00:27 - 00:43 (Frames 810 - 1290): Minute 05 - Hyphae & Magnifying HUD
-      ===================================================================== */}
-      <Sequence from={810} durationInFrames={480}>
-        <ChapterBanner
-          timeTag="MINUTE 05 // MICROSCOPIC THREADS"
-          title="THE INVISIBLE INVASION"
-          color={COLORS.cyanHud}
-          position="top-left"
-        />
+      <Sequence from={1014} durationInFrames={132}>
         <TrackedCallout
+          durationInFrames={132}
           keyframes={[
-            { frame: 0, x: 42, y: 34 },
-            { frame: 240, x: 40, y: 36 },
-            { frame: 480, x: 38, y: 35 },
+            { frame: 0, x: 52, y: 49 },
+            { frame: 66, x: 45, y: 40 },
+            { frame: 132, x: 39, y: 33 },
           ]}
           label="SURFACE SPORES"
           sublabel="REPRODUCTIVE HEADS"
           color={COLORS.neonGreen}
-          offsetX={-140}
-          offsetY={-65}
+          offsetX={-130}
+          offsetY={-50}
         />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 4: 00:39.5 - 00:44.5 (Frames 1185 - 1335)
+          Deep zoom into glowing blue hyphae root network inside bread pores
+      ===================================================================== */}
+      <Sequence from={1185} durationInFrames={150}>
         <TrackedCallout
+          durationInFrames={150}
           keyframes={[
-            { frame: 0, x: 55, y: 62 },
-            { frame: 240, x: 58, y: 66 },
-            { frame: 480, x: 61, y: 68 },
+            { frame: 0, x: 48, y: 58 },
+            { frame: 75, x: 48, y: 56 },
+            { frame: 150, x: 47, y: 54 },
           ]}
           label="HYPHAE NETWORK"
-          sublabel="DEEP MICROSCOPIC ROOTS (100% INFECTED)"
+          sublabel="DEEP MICROSCOPIC ROOT WEB"
           color={COLORS.cyanHud}
-          offsetX={140}
-          offsetY={60}
+          offsetX={130}
+          offsetY={55}
         />
       </Sequence>
 
       {/* =====================================================================
-          00:44 - 00:50 (Frames 1320 - 1500): Spores Entering Esophagus
+          SHOT 5: 00:53.5 - 01:03.5 (Frames 1605 - 1905)
+          Boiling green stomach acid pool (starts after 00:15 timer fades,
+          exits before voiceover pivots to Minute 30 at 01:04)
       ===================================================================== */}
-      <Sequence from={1320} durationInFrames={180}>
+      <Sequence from={1605} durationInFrames={300}>
+        <StomachAcidHudV2 durationInFrames={300} />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 6: 01:12.2 - 01:19.5 (Frames 2166 - 2385)
+          Aspergillus spiky creatures & glowing green mycotoxin orbs in tunnel
+      ===================================================================== */}
+      <Sequence from={2166} durationInFrames={219}>
         <TrackedCallout
+          durationInFrames={219}
           keyframes={[
-            { frame: 0, x: 52, y: 48 },
-            { frame: 90, x: 52, y: 58 },
-            { frame: 180, x: 52, y: 72 },
-          ]}
-          label="MILLIONS OF SPORES"
-          sublabel="TRANSIT -> ESOPHAGUS"
-          color={COLORS.warningAmber}
-          offsetX={150}
-          offsetY={-40}
-        />
-      </Sequence>
-
-      {/* =====================================================================
-          00:51 - 01:09 (Frames 1530 - 2070): Minute 15 - Stomach Acid Bath Gauge
-      ===================================================================== */}
-      <Sequence from={1530} durationInFrames={540}>
-        <ChapterBanner
-          timeTag="MINUTE 15 // FIRST LINE OF DEFENSE"
-          title="THE STOMACH ACID BATH"
-          color={COLORS.neonGreen}
-          position="top-left"
-        />
-        <StomachAcidHud />
-      </Sequence>
-
-      {/* =====================================================================
-          01:10 - 01:20 (Frames 2100 - 2400): Minute 30 - Aspergillus & Mycotoxins
-          (Placed Top-Left to avoid baked-in 00:30 in Top-Right)
-      ===================================================================== */}
-      <Sequence from={2100} durationInFrames={300}>
-        <ChapterBanner
-          timeTag="MINUTE 30 // SURVIVOR SPECIES"
-          title="BREACHING THE GATE"
-          color={COLORS.crimsonAlert}
-          position="top-left"
-        />
-        <TrackedCallout
-          keyframes={[
-            { frame: 0, x: 46, y: 48, scale: 0.9 },
-            { frame: 150, x: 44, y: 45, scale: 1.05 },
-            { frame: 300, x: 42, y: 43, scale: 1.15 },
+            { frame: 0, x: 36, y: 70, scale: 0.95 },
+            { frame: 110, x: 36, y: 72, scale: 1.0 },
+            { frame: 219, x: 36, y: 74, scale: 1.05 },
           ]}
           label="ASPERGILLUS"
-          sublabel="ACID-RESISTANT FUNGAL SPECIES"
+          sublabel="ACID-RESISTANT FUNGUS"
           color={COLORS.crimsonAlert}
-          offsetX={-150}
-          offsetY={-70}
+          offsetX={-125}
+          offsetY={-55}
         />
         <TrackedCallout
+          durationInFrames={219}
           keyframes={[
-            { frame: 0, x: 56, y: 58, scale: 0.9 },
-            { frame: 150, x: 58, y: 56, scale: 1.05 },
-            { frame: 300, x: 61, y: 54, scale: 1.15 },
+            { frame: 0, x: 57, y: 55, scale: 0.95 },
+            { frame: 110, x: 57, y: 52, scale: 1.0 },
+            { frame: 219, x: 57, y: 50, scale: 1.05 },
           ]}
-          label="MYCOTOXIN PAYLOAD"
+          label="MYCOTOXIN"
           sublabel="INVISIBLE CHEMICAL WEAPON"
           color={COLORS.neonGreen}
-          offsetX={140}
-          offsetY={50}
+          offsetX={120}
+          offsetY={-45}
         />
       </Sequence>
 
       {/* =====================================================================
-          01:21 - 01:29 (Frames 2430 - 2700): Toaster 500°F Heat Resistance HUD
+          SHOT 7: 01:21.5 - 01:28.8 (Frames 2445 - 2664)
+          Toaster oven 500°F heat resistance test
       ===================================================================== */}
-      <Sequence from={2430} durationInFrames={270}>
-        <ToasterHeatHud />
+      <Sequence from={2445} durationInFrames={219}>
+        <ToasterHeatHudV2 durationInFrames={219} />
       </Sequence>
 
       {/* =====================================================================
-          01:30 - 01:39 (Frames 2700 - 2970): Pyloric Valve Breach & Chasing Orbs
+          SHOT 8: 01:35.8 - 01:39.2 (Frames 2874 - 2976)
+          Small intestine chase: Giant green orb moving RIGHT-TO-LEFT
       ===================================================================== */}
-      <Sequence from={2700} durationInFrames={270}>
+      <Sequence from={2874} durationInFrames={102}>
         <TrackedCallout
+          durationInFrames={102}
           keyframes={[
-            { frame: 0, x: 50, y: 42 },
-            { frame: 135, x: 54, y: 46 },
-            { frame: 270, x: 58, y: 50 },
+            { frame: 0, x: 60, y: 65, scale: 1 },
+            { frame: 51, x: 52, y: 61, scale: 1.05 },
+            { frame: 102, x: 44, y: 58, scale: 1.08 },
           ]}
-          label="INTACT MYCOTOXINS"
-          sublabel="STOMACH VALVE BREACHED -> SMALL INTESTINE"
+          label="INTACT MYCOTOXIN"
+          sublabel="BYPASSED STOMACH VALVE"
           color={COLORS.neonGreen}
-          offsetX={130}
-          offsetY={-75}
-          reticleSize={64}
+          offsetX={120}
+          offsetY={-65}
+          reticleSize={56}
         />
       </Sequence>
 
       {/* =====================================================================
-          01:40 - 01:59 (Frames 3000 - 3570): Minute 45 - Emergency Purge & Split HUD
+          SHOT 9: 01:43.5 - 01:46.8 (Frames 3105 - 3204)
+          Boy inside glass dome hitting red panic button on gut lining
       ===================================================================== */}
-      <Sequence from={3000} durationInFrames={570}>
-        <ChapterBanner
-          timeTag="MINUTE 45 // GUT ALARM TRIGGERED"
-          title="THE EMERGENCY PURGE"
+      <Sequence from={3105} durationInFrames={99}>
+        <TrackedCallout
+          durationInFrames={99}
+          keyframes={[
+            { frame: 0, x: 50, y: 66 },
+            { frame: 99, x: 50, y: 66 },
+          ]}
+          label="GUT SENSOR CELLS"
+          sublabel="PANIC ALARM TRIGGERED"
           color={COLORS.crimsonAlert}
-          position="top-left"
+          offsetX={140}
+          offsetY={-60}
         />
-        <Sequence from={110} durationInFrames={190}>
-          <TrackedCallout
-            keyframes={[
-              { frame: 0, x: 50, y: 64 },
-              { frame: 190, x: 50, y: 62 },
-            ]}
-            label="GUT SENSOR CELLS"
-            sublabel="PANIC SIGNAL -> VAGUS NERVE"
-            color={COLORS.crimsonAlert}
-            offsetX={150}
-            offsetY={-80}
-          />
-        </Sequence>
-        <Sequence from={360} durationInFrames={210}>
-          <SplitScreenVagusHud />
-        </Sequence>
       </Sequence>
 
       {/* =====================================================================
-          02:00 - 02:23 (Frames 3600 - 4290): Minute 60 - Liver Siege & Aflatoxin DNA
+          SHOT 10A & 10B: Split-Screen Vagus Nerve & Physical Purge
+          Active ONLY during the two split-screen windows (01:47.6-01:50.5
+          and 01:55.8-01:59.2), hidden during the 01:51-01:55 face close-up!
       ===================================================================== */}
-      <Sequence from={3600} durationInFrames={690}>
-        <ChapterBanner
-          timeTag="MINUTE 60 // BLOODSTREAM ABSORPTION"
-          title="LIVER UNDER SIEGE"
+      <Sequence from={3228} durationInFrames={87}>
+        <SplitScreenVagusHudV2 durationInFrames={87} />
+      </Sequence>
+      <Sequence from={3474} durationInFrames={102}>
+        <SplitScreenVagusHudV2 durationInFrames={102} />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 11: 02:01.8 - 02:08.5 (Frames 3654 - 3855)
+          Liver character in yellow hard hat turning detox wheel (right side)
+      ===================================================================== */}
+      <Sequence from={3654} durationInFrames={201}>
+        <TrackedCallout
+          durationInFrames={201}
+          keyframes={[
+            { frame: 0, x: 65, y: 38 },
+            { frame: 100, x: 60, y: 34 },
+            { frame: 201, x: 56, y: 31 },
+          ]}
+          label="EMERGENCY DETOX MODE"
+          sublabel="HEPATIC BLOOD FILTRATION"
           color={COLORS.warningAmber}
-          position="top-left"
+          offsetX={-140}
+          offsetY={-55}
         />
-        <Sequence from={0} durationInFrames={240}>
-          <TrackedCallout
-            keyframes={[
-              { frame: 0, x: 49, y: 38 },
-              { frame: 120, x: 51, y: 40 },
-              { frame: 240, x: 49, y: 39 },
-            ]}
-            label="HEPATIC DETOX MODE"
-            sublabel="FILTERING PORTAL VEIN BLOOD"
-            color={COLORS.warningAmber}
-            offsetX={145}
-            offsetY={-60}
-          />
-        </Sequence>
-        <Sequence from={240} durationInFrames={180}>
-          <TrackedCallout
-            keyframes={[
-              { frame: 0, x: 45, y: 55 },
-              { frame: 180, x: 52, y: 58 },
-            ]}
-            label="CYP450 ENZYMES"
-            sublabel="CHEMICAL NEUTRALIZATION AGENTS"
-            color={COLORS.cyanHud}
-            offsetX={130}
-            offsetY={-55}
-          />
-        </Sequence>
-        <Sequence from={420} durationInFrames={270}>
-          <TrackedCallout
-            keyframes={[
-              { frame: 0, x: 50, y: 48, scale: 1 },
-              { frame: 135, x: 52, y: 46, scale: 1.1 },
-              { frame: 270, x: 50, y: 48, scale: 1 },
-            ]}
-            label="AFLATOXIN B1"
-            sublabel="CRITICAL: BINDS & MUTATES HUMAN DNA"
-            color={COLORS.crimsonAlert}
-            offsetX={140}
-            offsetY={-70}
-            reticleSize={58}
-          />
-        </Sequence>
       </Sequence>
 
       {/* =====================================================================
-          02:24 - 02:37 (Frames 4320 - 4710): Penicillin Myth Buster & Good Bacteria
+          SHOT 12: 02:10.2 - 02:13.2 (Frames 3906 - 3996)
+          Workers pouring glowing blue enzyme buckets
       ===================================================================== */}
-      <Sequence from={4320} durationInFrames={390}>
-        <MythBusterBanner />
-        <Sequence from={150} durationInFrames={240}>
-          <TrackedCallout
-            keyframes={[
-              { frame: 0, x: 38, y: 62 },
-              { frame: 120, x: 32, y: 65 },
-              { frame: 240, x: 28, y: 66 },
-            ]}
-            label="BENEFICIAL MICROBIOME"
-            sublabel="WIPED OUT BY HOUSEHOLD MYCOTOXINS"
-            color={COLORS.cyanHud}
-            offsetX={140}
-            offsetY={-60}
-          />
-        </Sequence>
+      <Sequence from={3906} durationInFrames={90}>
+        <TrackedCallout
+          durationInFrames={90}
+          keyframes={[
+            { frame: 0, x: 50, y: 56 },
+            { frame: 90, x: 50, y: 58 },
+          ]}
+          label="ENZYME NEUTRALIZATION"
+          sublabel="BREAKING DOWN TOXINS"
+          color={COLORS.cyanHud}
+          offsetX={130}
+          offsetY={-45}
+        />
       </Sequence>
 
       {/* =====================================================================
-          02:38 - 02:56 (Frames 4740 - 5280): Soft Food Trash Tags & 1-Inch Cheddar Rule
+          SHOT 13: 02:14.5 - 02:19.2 (Frames 4035 - 4176)
+          Glowing DNA strand fracturing (exits before 02:20 tissue zoom-out)
       ===================================================================== */}
-      <Sequence from={4740} durationInFrames={270}>
+      <Sequence from={4035} durationInFrames={141}>
         <TrackedCallout
-          keyframes={[{ frame: 0, x: 26, y: 58 }, { frame: 270, x: 26, y: 58 }]}
-          label="SOFT BREAD: TRASH"
-          sublabel="POROUS -> DEEP HYPHAE"
+          durationInFrames={141}
+          keyframes={[
+            { frame: 0, x: 53, y: 46, scale: 1 },
+            { frame: 70, x: 52, y: 47, scale: 1.08 },
+            { frame: 141, x: 52, y: 48, scale: 1 },
+          ]}
+          label="AFLATOXIN B1"
+          sublabel="BINDS & MUTATES HUMAN DNA"
           color={COLORS.crimsonAlert}
-          offsetX={60}
-          offsetY={-85}
+          offsetX={135}
+          offsetY={-60}
+          reticleSize={54}
         />
-        <TrackedCallout
-          keyframes={[{ frame: 0, x: 52, y: 64 }, { frame: 270, x: 52, y: 64 }]}
-          label="BERRIES: TRASH"
-          sublabel="HIGH MOISTURE SPREAD"
-          color={COLORS.crimsonAlert}
-          offsetX={60}
-          offsetY={-85}
-        />
-        <TrackedCallout
-          keyframes={[{ frame: 0, x: 76, y: 52 }, { frame: 270, x: 76, y: 52 }]}
-          label="JAM / JELLY: TRASH"
-          sublabel="MYCOTOXIN DIFFUSION"
-          color={COLORS.crimsonAlert}
-          offsetX={-80}
-          offsetY={-85}
-        />
-      </Sequence>
-
-      <Sequence from={5130} durationInFrames={165}>
-        <OneInchCheddarRuler />
       </Sequence>
 
       {/* =====================================================================
-          02:57 - 03:12 (Frames 5310 - 5758): End-Screen 4-Point Tracked CTA Card
+          SHOT 14: 02:24.2 - 02:29.5 (Frames 4326 - 4485)
+          Antibiotic pill capsule in petri dish -> Top Myth-Buster Banner
       ===================================================================== */}
-      <Sequence from={5460} durationInFrames={298}>
-        <EndScreenTrackedCTA />
+      <Sequence from={4326} durationInFrames={159}>
+        <MythBusterBannerV2 durationInFrames={159} />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 15: 02:31.5 - 02:34.8 (Frames 4545 - 4644)
+          Cute pastel gut bacteria fleeing (exits before turning to ash at 02:35)
+      ===================================================================== */}
+      <Sequence from={4545} durationInFrames={99}>
+        <TrackedCallout
+          durationInFrames={99}
+          keyframes={[
+            { frame: 0, x: 30, y: 65 },
+            { frame: 50, x: 28, y: 66 },
+            { frame: 99, x: 26, y: 68 },
+          ]}
+          label="GOOD GUT BACTERIA"
+          sublabel="WIPED OUT BY MYCOTOXINS"
+          color={COLORS.cyanHud}
+          offsetX={135}
+          offsetY={-55}
+        />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 16: 02:40.0 - 02:46.5 (Frames 4800 - 4995)
+          Panning kitchen counter -> Sequential Checklist HUD Bar (Zero Drift)
+      ===================================================================== */}
+      <Sequence from={4800} durationInFrames={195}>
+        <SoftFoodsChecklistBanner durationInFrames={195} />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 17: 02:51.8 - 02:55.5 (Frames 5154 - 5265)
+          1-Inch Safe Margin tracked directly to cheddar cheese cut gap
+      ===================================================================== */}
+      <Sequence from={5154} durationInFrames={111}>
+        <TrackedCallout
+          durationInFrames={111}
+          keyframes={[
+            { frame: 0, x: 59, y: 76 },
+            { frame: 55, x: 59, y: 76 },
+            { frame: 111, x: 58, y: 77 },
+          ]}
+          label="◄— 1 INCH SAFE MARGIN —►"
+          sublabel="DENSE CHEDDAR BLOCKS ROOTS"
+          color={COLORS.neonGreen}
+          offsetX={85}
+          offsetY={-110}
+          reticleSize={48}
+        />
+      </Sequence>
+
+      {/* =====================================================================
+          SHOT 18: 03:06.2 - 03:11.8 (Frames 5586 - 5754)
+          End-Screen Header positioned ABOVE the right-hand neon frame (x: 72%)
+          so YouTube Studio's clickable End Screen card fits cleanly inside!
+      ===================================================================== */}
+      <Sequence from={5586} durationInFrames={168}>
+        <EndScreenHeaderCTA durationInFrames={168} />
       </Sequence>
     </AbsoluteFill>
   );
 };
 
 // ============================================================================
-// SCENE-SPECIFIC BESPOKE MOTION GRAPHIC COMPONENTS
+// BESPOKE SHOT-LOCKED COMPONENTS (Plan v3)
 // ============================================================================
 
-const KnifeCutStamp: React.FC = () => {
+const KnifeCutStampV2: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const cutProgress = interpolate(frame, [0, 45], [0, 1], { extrapolateRight: 'clamp' });
+  const intro = spring({ frame, fps, config: { damping: 14, stiffness: 180 } });
   const stampScale = spring({
-    frame: Math.max(0, frame - 35),
+    frame: Math.max(0, frame - 20),
     fps,
-    config: { damping: 10, stiffness: 220 },
+    config: { damping: 11, stiffness: 220 },
   });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 5, durationInFrames - 8, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
 
+  // Target is the moldy right edge of the bread on the cutting board (x: 67%, y: 76%)
   return (
-    <AbsoluteFill style={{ pointerEvents: 'none' }}>
-      {/* Animated Dotted Cut Line following the Knife Blade */}
-      <svg width="1920" height="1080" style={{ position: 'absolute', inset: 0 }}>
-        <line
-          x1="980"
-          y1="260"
-          x2={interpolate(cutProgress, [0, 1], [980, 940])}
-          y2={interpolate(cutProgress, [0, 1], [260, 820])}
-          stroke={COLORS.crimsonAlert}
-          strokeWidth="6"
-          strokeDasharray="18 12"
-          style={{ filter: `drop-shadow(0 0 12px ${COLORS.crimsonAlert})` }}
-        />
-      </svg>
+    <AbsoluteFill style={{ pointerEvents: 'none', opacity: exitOpacity }}>
+      {/* Target Reticle on the Moldy Bread Corner */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '67%',
+          top: '76%',
+          width: 52,
+          height: 52,
+          borderRadius: '50%',
+          border: `3px solid ${COLORS.crimsonAlert}`,
+          boxShadow: `0 0 16px ${COLORS.crimsonAlert}`,
+          transform: `translate(-50%, -50%) scale(${intro})`,
+        }}
+      />
 
-      {/* Slam-In Warning Stamp */}
-      {frame >= 35 && (
+      {/* Slam-In Warning Stamp in Upper-Right Open Space */}
+      {frame >= 20 && (
         <div
           style={{
             position: 'absolute',
-            right: 160,
-            top: 220,
-            transform: `scale(${stampScale}) rotate(-6deg)`,
-            border: `6px solid ${COLORS.crimsonAlert}`,
-            background: 'rgba(255, 42, 85, 0.18)',
-            padding: '14px 32px',
+            right: 90,
+            top: 140,
+            transform: `scale(${stampScale}) rotate(-4deg)`,
+            border: `5px solid ${COLORS.crimsonAlert}`,
+            background: COLORS.darkBg,
+            padding: '12px 28px',
             borderRadius: '10px',
-            boxShadow: `0 0 30px ${COLORS.crimsonAlert}88`,
-            backdropFilter: 'blur(6px)',
+            boxShadow: `0 12px 30px rgba(0,0,0,0.7), 0 0 26px ${COLORS.crimsonAlert}77`,
           }}
         >
           <div
             style={{
               fontFamily: FONTS.header,
-              fontSize: 54,
+              fontSize: 46,
               fontWeight: 900,
               color: COLORS.pureWhite,
-              letterSpacing: '0.08em',
-              textShadow: `0 0 16px ${COLORS.crimsonAlert}`,
+              letterSpacing: '0.06em',
+              textShadow: `0 0 14px ${COLORS.crimsonAlert}`,
             }}
           >
             ❌ BIG MISTAKE
@@ -655,14 +586,15 @@ const KnifeCutStamp: React.FC = () => {
           <div
             style={{
               fontFamily: FONTS.mono,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: 700,
               color: COLORS.warningAmber,
               textAlign: 'center',
-              letterSpacing: '0.1em',
+              letterSpacing: '0.08em',
+              marginTop: 2,
             }}
           >
-            ROOTS REMAIN INSIDE BREAD
+            INVISIBLE ROOTS REMAIN INSIDE
           </div>
         </div>
       )}
@@ -670,10 +602,20 @@ const KnifeCutStamp: React.FC = () => {
   );
 };
 
-const StomachAcidHud: React.FC = () => {
+const StomachAcidHudV2: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const intro = spring({ frame, fps, config: { damping: 15, stiffness: 150 } });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 10, durationInFrames - 12, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+
   const meltedPercent = Math.round(
-    interpolate(frame, [30, 320], [0, 90], {
+    interpolate(frame, [20, 210], [0, 90], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
       easing: Easing.out(Easing.cubic),
@@ -684,14 +626,16 @@ const StomachAcidHud: React.FC = () => {
     <div
       style={{
         position: 'absolute',
-        right: 64,
-        bottom: 72,
-        width: 440,
+        right: 56,
+        bottom: 56,
+        width: 430,
+        opacity: exitOpacity,
+        transform: `translateY(${interpolate(intro, [0, 1], [40, 0])}px)`,
         background: COLORS.darkBg,
         border: `2px solid ${COLORS.neonGreen}`,
         borderRadius: 12,
-        padding: '20px 24px',
-        boxShadow: `0 12px 32px rgba(0,0,0,0.65), 0 0 20px ${COLORS.neonGreen}33`,
+        padding: '18px 22px',
+        boxShadow: `0 12px 32px rgba(0,0,0,0.7), 0 0 20px ${COLORS.neonGreen}33`,
         backdropFilter: 'blur(10px)',
       }}
     >
@@ -699,17 +643,17 @@ const StomachAcidHud: React.FC = () => {
         <span
           style={{
             fontFamily: FONTS.mono,
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: 700,
             color: COLORS.neonGreen,
           }}
         >
-          HYDROCHLORIC ACID (HCl)
+          STOMACH ACID (HCl)
         </span>
         <span
           style={{
             fontFamily: FONTS.mono,
-            fontSize: 26,
+            fontSize: 25,
             fontWeight: 900,
             color: COLORS.pureWhite,
           }}
@@ -718,14 +662,13 @@ const StomachAcidHud: React.FC = () => {
         </span>
       </div>
 
-      {/* Progress Bar */}
       <div
         style={{
           width: '100%',
-          height: 16,
+          height: 14,
           background: 'rgba(255,255,255,0.12)',
-          borderRadius: 8,
-          marginTop: 14,
+          borderRadius: 7,
+          marginTop: 12,
           overflow: 'hidden',
         }}
       >
@@ -745,22 +688,29 @@ const StomachAcidHud: React.FC = () => {
           justifyContent: 'space-between',
           marginTop: 10,
           fontFamily: FONTS.mono,
-          fontSize: 16,
+          fontSize: 15,
           color: COLORS.pureWhite,
           fontWeight: 700,
         }}
       >
         <span>HARMLESS SPORES MELTED:</span>
-        <span style={{ color: COLORS.neonGreen, fontSize: 20 }}>{meltedPercent}%</span>
+        <span style={{ color: COLORS.neonGreen, fontSize: 19 }}>{meltedPercent}%</span>
       </div>
     </div>
   );
 };
 
-const ToasterHeatHud: React.FC = () => {
+const ToasterHeatHudV2: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
+  const exitOpacity = interpolate(
+    frame,
+    [0, 8, durationInFrames - 10, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+
   const tempF = Math.round(
-    interpolate(frame, [0, 120], [72, 500], {
+    interpolate(frame, [0, 100], [72, 500], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     })
@@ -768,29 +718,28 @@ const ToasterHeatHud: React.FC = () => {
   const fillPct = interpolate(tempF, [72, 500], [10, 100]);
 
   return (
-    <AbsoluteFill style={{ pointerEvents: 'none' }}>
-      {/* Right-Side Vertical Thermometer HUD */}
+    <AbsoluteFill style={{ pointerEvents: 'none', opacity: exitOpacity }}>
       <div
         style={{
           position: 'absolute',
-          right: 64,
-          top: 160,
+          right: 56,
+          top: 150,
           background: COLORS.darkBg,
           border: `2px solid ${COLORS.crimsonAlert}`,
           borderRadius: 12,
           padding: 20,
           display: 'flex',
           alignItems: 'center',
-          gap: 20,
-          boxShadow: `0 0 24px ${COLORS.crimsonAlert}55`,
+          gap: 18,
+          boxShadow: `0 10px 28px rgba(0,0,0,0.65), 0 0 22px ${COLORS.crimsonAlert}44`,
         }}
       >
         <div
           style={{
-            width: 24,
-            height: 220,
+            width: 22,
+            height: 200,
             background: 'rgba(255,255,255,0.12)',
-            borderRadius: 12,
+            borderRadius: 11,
             position: 'relative',
             overflow: 'hidden',
           }}
@@ -802,18 +751,18 @@ const ToasterHeatHud: React.FC = () => {
               width: '100%',
               height: `${fillPct}%`,
               background: `linear-gradient(180deg, ${COLORS.crimsonAlert}, ${COLORS.warningAmber})`,
-              boxShadow: `0 0 16px ${COLORS.crimsonAlert}`,
+              boxShadow: `0 0 14px ${COLORS.crimsonAlert}`,
             }}
           />
         </div>
         <div>
-          <div style={{ fontFamily: FONTS.mono, fontSize: 15, color: COLORS.warningAmber }}>
-            THERMAL RESISTANCE TEST
+          <div style={{ fontFamily: FONTS.mono, fontSize: 14, color: COLORS.warningAmber }}>
+            THERMAL RESISTANCE
           </div>
           <div
             style={{
               fontFamily: FONTS.header,
-              fontSize: 52,
+              fontSize: 48,
               fontWeight: 900,
               color: COLORS.pureWhite,
             }}
@@ -823,9 +772,9 @@ const ToasterHeatHud: React.FC = () => {
           <div
             style={{
               fontFamily: FONTS.mono,
-              fontSize: 16,
+              fontSize: 15,
               color: COLORS.neonGreen,
-              marginTop: 8,
+              marginTop: 6,
             }}
           >
             ✓ LIVING MOLD: DEAD
@@ -833,13 +782,13 @@ const ToasterHeatHud: React.FC = () => {
           <div
             style={{
               fontFamily: FONTS.mono,
-              fontSize: 16,
+              fontSize: 15,
               color: COLORS.crimsonAlert,
               fontWeight: 800,
               marginTop: 4,
             }}
           >
-            ⚠️ MYCOTOXINS: INTACT
+            ⚠️ MYCOTOXINS: SURVIVE
           </div>
         </div>
       </div>
@@ -847,84 +796,114 @@ const ToasterHeatHud: React.FC = () => {
   );
 };
 
-const SplitScreenVagusHud: React.FC = () => {
+const SplitScreenVagusHudV2: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pop = spring({ frame, fps, config: { damping: 14 } });
+  const pop = spring({ frame, fps, config: { damping: 14, stiffness: 170 } });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 6, durationInFrames - 8, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
 
   return (
-    <AbsoluteFill style={{ pointerEvents: 'none' }}>
-      {/* Left Label: Vagus Nerve */}
+    <AbsoluteFill style={{ pointerEvents: 'none', opacity: exitOpacity }}>
+      {/* Left Split-Screen Badge: Vagus Nerve */}
       <div
         style={{
           position: 'absolute',
-          left: 64,
-          bottom: 64,
+          left: 56,
+          bottom: 56,
           transform: `scale(${pop})`,
           background: COLORS.darkBg,
           borderLeft: `5px solid ${COLORS.cyanHud}`,
-          padding: '12px 20px',
+          padding: '10px 18px',
           borderRadius: 6,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.65)',
         }}
       >
-        <div style={{ fontFamily: FONTS.mono, fontSize: 14, color: COLORS.cyanHud }}>
-          NEURAL PATHWAY
+        <div style={{ fontFamily: FONTS.mono, fontSize: 13, color: COLORS.cyanHud }}>
+          ELECTRICAL ALARM
         </div>
-        <div style={{ fontFamily: FONTS.header, fontSize: 26, color: COLORS.pureWhite, fontWeight: 800 }}>
-          VAGUS NERVE → VOMITING CENTER
+        <div
+          style={{
+            fontFamily: FONTS.header,
+            fontSize: 24,
+            color: COLORS.pureWhite,
+            fontWeight: 800,
+          }}
+        >
+          VAGUS NERVE → BRAIN
         </div>
       </div>
 
-      {/* Right Label: Physical Purge Response */}
+      {/* Right Split-Screen Badge: Physical Purge */}
       <div
         style={{
           position: 'absolute',
-          right: 64,
-          bottom: 64,
+          right: 56,
+          bottom: 56,
           transform: `scale(${pop})`,
           background: COLORS.darkBg,
           borderLeft: `5px solid ${COLORS.crimsonAlert}`,
-          padding: '12px 20px',
+          padding: '10px 18px',
           borderRadius: 6,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.65)',
         }}
       >
-        <div style={{ fontFamily: FONTS.mono, fontSize: 14, color: COLORS.crimsonAlert }}>
-          DEFENSE PROTOCOL
+        <div style={{ fontFamily: FONTS.mono, fontSize: 13, color: COLORS.crimsonAlert }}>
+          PHYSICAL RESPONSE
         </div>
-        <div style={{ fontFamily: FONTS.header, fontSize: 26, color: COLORS.pureWhite, fontWeight: 800 }}>
-          SALIVA SHIELD + COLD SWEAT + PURGE
+        <div
+          style={{
+            fontFamily: FONTS.header,
+            fontSize: 24,
+            color: COLORS.pureWhite,
+            fontWeight: 800,
+          }}
+        >
+          COLD SWEAT + STOMACH PURGE
         </div>
       </div>
     </AbsoluteFill>
   );
 };
 
-const MythBusterBanner: React.FC = () => {
+const MythBusterBannerV2: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const scale = spring({ frame, fps, config: { damping: 13 } });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 8, durationInFrames - 10, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
 
   return (
     <div
       style={{
         position: 'absolute',
-        top: 56,
+        top: 52,
         left: '50%',
+        opacity: exitOpacity,
         transform: `translateX(-50%) scale(${scale})`,
         background: COLORS.darkBg,
         border: `2px solid ${COLORS.crimsonAlert}`,
-        padding: '14px 36px',
+        padding: '12px 32px',
         borderRadius: 50,
-        boxShadow: `0 10px 30px rgba(0,0,0,0.6), 0 0 20px ${COLORS.crimsonAlert}55`,
+        boxShadow: `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${COLORS.crimsonAlert}55`,
         display: 'flex',
         alignItems: 'center',
-        gap: 18,
+        gap: 16,
+        whiteSpace: 'nowrap',
       }}
     >
       <span
         style={{
           fontFamily: FONTS.mono,
-          fontSize: 22,
+          fontSize: 21,
           fontWeight: 800,
           color: COLORS.pureWhite,
         }}
@@ -937,7 +916,7 @@ const MythBusterBanner: React.FC = () => {
           color: COLORS.pureWhite,
           fontFamily: FONTS.header,
           fontWeight: 900,
-          fontSize: 20,
+          fontSize: 19,
           padding: '4px 14px',
           borderRadius: 20,
         }}
@@ -948,111 +927,130 @@ const MythBusterBanner: React.FC = () => {
   );
 };
 
-const OneInchCheddarRuler: React.FC = () => {
+const SoftFoodsChecklistBanner: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
-  const widthPct = interpolate(frame, [0, 35], [0, 100], { extrapolateRight: 'clamp' });
+  const { fps } = useVideoConfig();
+  const slideUp = spring({ frame, fps, config: { damping: 14, stiffness: 150 } });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 8, durationInFrames - 10, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+
+  const items = [
+    { label: '🗑️ SOFT BREAD', triggerFrame: 0 },
+    { label: '🗑️ BERRIES & FRUIT', triggerFrame: 48 },
+    { label: '🗑️ JAM & SOFT CHEESE', triggerFrame: 96 },
+  ];
 
   return (
     <div
       style={{
         position: 'absolute',
-        left: '44%',
-        top: '56%',
-        transform: 'translate(-50%, -50%)',
-        width: 220,
+        bottom: 54,
+        left: '50%',
+        opacity: exitOpacity,
+        transform: `translateX(-50%) translateY(${interpolate(slideUp, [0, 1], [60, 0])}px)`,
+        background: COLORS.darkBg,
+        border: `2px solid ${COLORS.crimsonAlert}`,
+        borderRadius: 14,
+        padding: '16px 28px',
+        boxShadow: `0 14px 36px rgba(0,0,0,0.75), 0 0 24px ${COLORS.crimsonAlert}44`,
         textAlign: 'center',
       }}
     >
       <div
         style={{
-          fontFamily: FONTS.mono,
-          fontSize: 22,
+          fontFamily: FONTS.header,
+          fontSize: 24,
           fontWeight: 900,
-          color: COLORS.neonGreen,
-          background: COLORS.darkBg,
-          padding: '6px 12px',
-          borderRadius: 6,
-          border: `2px solid ${COLORS.neonGreen}`,
-          marginBottom: 8,
-          boxShadow: `0 0 14px ${COLORS.neonGreen}55`,
+          color: COLORS.pureWhite,
+          letterSpacing: '0.05em',
+          marginBottom: 12,
         }}
       >
-        ◄— 1 INCH SAFE MARGIN —►
+        RULE #1: HIGH-MOISTURE &amp; POROUS FOODS → STRAIGHT TO TRASH
       </div>
-      <div
-        style={{
-          width: `${widthPct}%`,
-          height: 6,
-          background: COLORS.neonGreen,
-          boxShadow: `0 0 12px ${COLORS.neonGreen}`,
-          position: 'relative',
-        }}
-      />
+      <div style={{ display: 'flex', gap: 14, justifyContent: 'center' }}>
+        {items.map((item) => {
+          const active = frame >= item.triggerFrame;
+          return (
+            <div
+              key={item.label}
+              style={{
+                fontFamily: FONTS.mono,
+                fontSize: 16,
+                fontWeight: 800,
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: active ? COLORS.crimsonAlert : 'rgba(255,255,255,0.08)',
+                color: active ? COLORS.pureWhite : 'rgba(255,255,255,0.45)',
+                border: `1.5px solid ${active ? COLORS.pureWhite : 'rgba(255,255,255,0.15)'}`,
+                boxShadow: active ? `0 0 14px ${COLORS.crimsonAlert}` : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {item.label}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
 
-const EndScreenTrackedCTA: React.FC = () => {
+const EndScreenHeaderCTA: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pop = spring({ frame, fps, config: { damping: 12 } });
-  const pulse = 1 + Math.sin(frame * 0.2) * 0.03;
+  const pop = spring({ frame, fps, config: { damping: 12, stiffness: 160 } });
+  const exitOpacity = interpolate(
+    frame,
+    [0, 8, durationInFrames - 8, durationInFrames],
+    [0, 1, 1, 0],
+    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
+  );
+  const bounceY = Math.sin(frame * 0.25) * 5;
 
+  // Positioned at x: 72%, y: 20% (Directly ABOVE the right-hand glowing neon frame)
   return (
     <div
       style={{
         position: 'absolute',
-        left: '34%',
-        top: '48%',
-        width: 560,
-        transform: `translate(-50%, -50%) scale(${pop * pulse})`,
-        background: 'rgba(8, 16, 28, 0.78)',
-        border: `3px solid ${COLORS.cyanHud}`,
-        borderRadius: 18,
-        padding: '28px 32px',
-        boxShadow: `0 0 35px ${COLORS.cyanHud}66`,
-        backdropFilter: 'blur(8px)',
+        left: '72%',
+        top: '20%',
+        opacity: exitOpacity,
+        transform: `translate(-50%, calc(-50% + ${bounceY}px)) scale(${pop})`,
+        background: COLORS.darkBg,
+        border: `2.5px solid ${COLORS.cyanHud}`,
+        borderRadius: 12,
+        padding: '12px 24px',
+        boxShadow: `0 10px 28px rgba(0,0,0,0.75), 0 0 24px ${COLORS.cyanHud}66`,
         textAlign: 'center',
+        whiteSpace: 'nowrap',
       }}
     >
       <div
         style={{
           fontFamily: FONTS.mono,
-          fontSize: 16,
-          fontWeight: 700,
+          fontSize: 14,
+          fontWeight: 800,
           color: COLORS.warningAmber,
-          letterSpacing: '0.14em',
+          letterSpacing: '0.12em',
         }}
       >
-        UP NEXT // BIOLOGICAL COUNTDOWN
+        UP NEXT // CLICK BELOW TO WATCH
       </div>
       <div
         style={{
           fontFamily: FONTS.header,
-          fontSize: 34,
+          fontSize: 24,
           fontWeight: 900,
           color: COLORS.pureWhite,
-          lineHeight: 1.2,
-          marginTop: 10,
+          marginTop: 4,
         }}
       >
-        WHAT HAPPENS 1 HOUR AFTER TAKING EXPIRED MEDICINE?
-      </div>
-      <div
-        style={{
-          display: 'inline-block',
-          marginTop: 18,
-          background: COLORS.crimsonAlert,
-          color: COLORS.pureWhite,
-          fontFamily: FONTS.mono,
-          fontSize: 18,
-          fontWeight: 800,
-          padding: '8px 22px',
-          borderRadius: 30,
-          boxShadow: `0 0 16px ${COLORS.crimsonAlert}`,
-        }}
-      >
-        ▶ CLICK HERE TO WATCH NOW
+        ▼ EXPIRED MEDICINE: 1 HOUR LATER ▼
       </div>
     </div>
   );
