@@ -1,0 +1,20 @@
+{
+  "name": "remotion-mold-hud",
+  "version": "1.0.0",
+  "description": "Motion Graphics & Point-Tracked Bio-HUD Overlays for What Happens If You Eat Moldy Bread",
+  "scripts": {
+    "start": "remotion studio",
+    "render": "remotion render src/index.ts MoldVideoWithHUD out/mold-video-hud.mp4 --codec=h264",
+    "render:alpha": "remotion render src/index.ts MoldHUDAlphaOverlay out/mold-hud-alpha.mov --image-format=png --pixel-format=yuva444p10le --codec=prores --prores-profile=4444"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.230",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.230"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "typescript": "^5.5.4"
+  }
+}
